@@ -1,13 +1,15 @@
 import { DiscordSnowflake } from '@sapphire/snowflake';
 import { Routes, Snowflake } from 'discord-api-types/v10';
-import { File, FormData, MockAgent, setGlobalDispatcher } from 'undici';
-import type { Interceptable, MockInterceptor } from 'undici/types/mock-interceptor';
+import { File, FormData, MockAgent } from 'undici';
+import type { MockInterceptor } from 'undici/types/mock-interceptor';
 import { REST } from '../src';
 import { genPath } from './util';
 
 const newSnowflake: Snowflake = DiscordSnowflake.generate().toString();
-
-const api = new REST().setToken('A-Very-Fake-Token');
+const query = new URLSearchParams([
+	['foo', 'bar'],
+	['hello', 'world'],
+]);
 
 // @discordjs/rest uses the `content-type` header to detect whether to parse
 // the response as JSON or as an ArrayBuffer.
@@ -17,161 +19,205 @@ const responseOptions: MockInterceptor.MockResponseOptions = {
 	},
 };
 
-/*
 const mockAgent = new MockAgent();
 mockAgent.disableNetConnect();
-setGlobalDispatcher(mockAgent);
 
-const mockPool = mockAgent.get('http://localhost:3000');
-mockPool.intercept({ path: '/foo', method: 'GET' }).reply(200, 'foo');
+const api = new REST().setToken('A-Very-Fake-Token').setAgent(mockAgent);
 
-const res = await fetch('http://localhost:3000/foo');
+const mockPool = mockAgent.get('https://discord.com');
 
-console.log(res.status, await res.text()); // 200 foo
-*/
+// #region interceptors
 
-let mockAgent: MockAgent;
-let mockPool: Interceptable;
+mockPool
+	.intercept({
+		path: genPath('/simpleGet'),
+		method: 'GET',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
 
-beforeEach(() => {
-	mockAgent = new MockAgent();
-	mockAgent.disableNetConnect(); // prevent actual requests to Discord
-	setGlobalDispatcher(mockAgent); // enabled the mock client to intercept requests
+mockPool
+	.intercept({
+		path: genPath('/simpleDelete'),
+		method: 'DELETE',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
 
-	mockPool = mockAgent.get('https://discord.com');
-});
+mockPool
+	.intercept({
+		path: genPath('/simplePatch'),
+		method: 'PATCH',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
 
-afterEach(async () => {
+mockPool
+	.intercept({
+		path: genPath('/simplePut'),
+		method: 'PUT',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
+
+mockPool
+	.intercept({
+		path: genPath('/simplePost'),
+		method: 'POST',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
+
+mockPool
+	.intercept({
+		path: genPath('/simplePut'),
+		method: 'PUT',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
+
+mockPool
+	.intercept({
+		path: `${genPath('/getQuery')}?${query.toString()}`,
+		method: 'GET',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
+
+mockPool
+	.intercept({
+		path: genPath('/getAuth'),
+		method: 'GET',
+	})
+	.reply((t) => ({
+		data: { auth: (t.headers as unknown as Record<string, string | undefined>)['Authorization'] ?? null },
+		statusCode: 200,
+		responseOptions,
+	}))
+	.times(3);
+
+mockPool
+	.intercept({
+		path: genPath('/getReason'),
+		method: 'GET',
+	})
+	.reply((t) => ({
+		data: { reason: (t.headers as unknown as Record<string, string | undefined>)['X-Audit-Log-Reason'] ?? null },
+		statusCode: 200,
+		responseOptions,
+	}))
+	.times(3);
+
+mockPool
+	.intercept({
+		path: genPath('/urlEncoded'),
+		method: 'POST',
+	})
+	.reply((t) => ({
+		data: t.body!,
+		statusCode: 200,
+	}));
+
+mockPool
+	.intercept({
+		path: genPath('/postEcho'),
+		method: 'POST',
+	})
+	.reply((t) => ({
+		data: t.body!,
+		statusCode: 200,
+		responseOptions,
+	}));
+
+// The postFile interceptor will live in its function until the test is not skipped
+
+mockPool
+	.intercept({
+		path: genPath('/channels/339942739275677727/messages/392063687801700356'),
+		method: 'DELETE',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
+
+mockPool
+	.intercept({
+		path: genPath(`/channels/339942739275677727/messages/${newSnowflake}`),
+		method: 'DELETE',
+	})
+	.reply(() => ({
+		data: { test: true },
+		statusCode: 200,
+		responseOptions,
+	}));
+
+// #endregion
+
+afterAll(async () => {
 	await mockAgent.close();
 });
 
-test('simple GET', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/simpleGet'),
-			method: 'GET',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
+test('global agent', () => {
+	expect(api.requestManager.agent).toEqual(mockAgent);
+	expect(api.getAgent()).toEqual(mockAgent);
+});
 
+test('simple GET', async () => {
 	expect(await api.get('/simpleGet')).toStrictEqual({ test: true });
 });
 
 test('simple DELETE', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/simpleDelete'),
-			method: 'DELETE',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.delete('/simpleDelete')).toStrictEqual({ test: true });
 });
 
 test('simple PATCH', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/simplePatch'),
-			method: 'PATCH',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.patch('/simplePatch')).toStrictEqual({ test: true });
 });
 
 test('simple PUT', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/simplePut'),
-			method: 'PUT',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.put('/simplePut')).toStrictEqual({ test: true });
 });
 
 test('simple POST', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/simplePost'),
-			method: 'POST',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.post('/simplePost')).toStrictEqual({ test: true });
 });
 
 test('simple PUT', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/simplePut'),
-			method: 'PUT',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.put('/simplePut')).toStrictEqual({ test: true });
 });
 
 test('getQuery', async () => {
-	const query = new URLSearchParams([
-		['foo', 'bar'],
-		['hello', 'world'],
-	]);
-
-	mockPool
-		.intercept({
-			path: `${genPath('/getQuery')}?${query.toString()}`,
-			method: 'GET',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(
 		await api.get('/getQuery', {
-			query: query,
+			query,
 		}),
 	).toStrictEqual({ test: true });
 });
 
 test('getAuth', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/getAuth'),
-			method: 'GET',
-		})
-		.reply((t) => ({
-			data: { auth: (t.headers as unknown as Record<string, string | undefined>)['Authorization'] ?? null },
-			statusCode: 200,
-			responseOptions,
-		}))
-		.times(3);
-
 	// default
 	expect(await api.get('/getAuth')).toStrictEqual({ auth: 'Bot A-Very-Fake-Token' });
 
@@ -191,18 +237,6 @@ test('getAuth', async () => {
 });
 
 test('getReason', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/getReason'),
-			method: 'GET',
-		})
-		.reply((t) => ({
-			data: { reason: (t.headers as unknown as Record<string, string | undefined>)['X-Audit-Log-Reason'] ?? null },
-			statusCode: 200,
-			responseOptions,
-		}))
-		.times(3);
-
 	// default
 	expect(await api.get('/getReason')).toStrictEqual({ reason: null });
 
@@ -222,16 +256,6 @@ test('getReason', async () => {
 });
 
 test('urlEncoded', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/urlEncoded'),
-			method: 'POST',
-		})
-		.reply((t) => ({
-			data: t.body!,
-			statusCode: 200,
-		}));
-
 	const body = new URLSearchParams([
 		['client_id', '1234567890123545678'],
 		['client_secret', 'totally-valid-secret'],
@@ -252,49 +276,16 @@ test('urlEncoded', async () => {
 });
 
 test('postEcho', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/postEcho'),
-			method: 'POST',
-		})
-		.reply((t) => ({
-			data: t.body!,
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.post('/postEcho', { body: { foo: 'bar' } })).toStrictEqual({ foo: 'bar' });
 });
 
 test('Old Message Delete Edge-Case: Old message', async () => {
-	mockPool
-		.intercept({
-			path: genPath('/channels/339942739275677727/messages/392063687801700356'),
-			method: 'DELETE',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
 	expect(await api.delete(Routes.channelMessage('339942739275677727', '392063687801700356'))).toStrictEqual({
 		test: true,
 	});
 });
 
-test('Old Message Delete Edge-Case: Old message', async () => {
-	mockPool
-		.intercept({
-			path: genPath(`/channels/339942739275677727/messages/${newSnowflake}`),
-			method: 'DELETE',
-		})
-		.reply(() => ({
-			data: { test: true },
-			statusCode: 200,
-			responseOptions,
-		}));
-
+test('Old Message Delete Edge-Case: New message', async () => {
 	expect(await api.delete(Routes.channelMessage('339942739275677727', newSnowflake))).toStrictEqual({ test: true });
 });
 
