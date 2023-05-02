@@ -1,6 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { Dispatcher } from 'undici';
-import type { RequestOptions, RESTOptions } from '../REST.js';
+import type { RequestOptions, ResponseLike, RESTOptions } from '../REST.js';
 import type { HandlerRequestData, RequestManager, RouteData } from '../RequestManager.js';
 import { RESTEvents } from '../utils/constants.js';
 import { onRateLimit } from '../utils/utils.js';
@@ -57,7 +56,7 @@ export class BurstHandler implements IHandler {
 		url: string,
 		options: RequestOptions,
 		requestData: HandlerRequestData,
-	): Promise<Dispatcher.ResponseData> {
+	): Promise<ResponseLike> {
 		return this.runRequest(routeId, url, options, requestData);
 	}
 
@@ -76,7 +75,7 @@ export class BurstHandler implements IHandler {
 		options: RequestOptions,
 		requestData: HandlerRequestData,
 		retries = 0,
-	): Promise<Dispatcher.ResponseData> {
+	): Promise<ResponseLike> {
 		const method = options.method ?? 'get';
 
 		const res = await makeNetworkRequest(

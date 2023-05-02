@@ -4,7 +4,7 @@ import { defineConfig } from 'tsup';
 export function createTsupConfig({
 	entry = ['src/index.ts'],
 	external = [],
-	noExternal = [],
+	noExternal = [/(?:(?:cjs)|(?:esm))_shims/],
 	platform = 'node',
 	format = ['esm', 'cjs'],
 	target = 'es2022',

@@ -6,7 +6,7 @@ import { Collection } from '@discordjs/collection';
 import { lazy } from '@discordjs/util';
 import { DiscordSnowflake } from '@sapphire/snowflake';
 import { FormData, Headers, type RequestInit, type BodyInit, type Dispatcher, type Agent } from 'undici';
-import type { RESTOptions, RestEvents, RequestOptions } from './REST.js';
+import type { RESTOptions, RestEvents, RequestOptions, ResponseLike } from './REST.js';
 import { BurstHandler } from './handlers/BurstHandler.js';
 import type { IHandler } from './handlers/IHandler.js';
 import { SequentialHandler } from './handlers/SequentialHandler.js';
@@ -323,7 +323,7 @@ export class RequestManager extends EventEmitter {
 	 * @param request - All the information needed to make a request
 	 * @returns The response from the api request
 	 */
-	public async queueRequest(request: InternalRequest): Promise<Dispatcher.ResponseData> {
+	public async queueRequest(request: InternalRequest): Promise<ResponseLike> {
 		// Generalize the endpoint to its route data
 		const routeId = RequestManager.generateRouteData(request.fullRoute, request.method);
 		// Get the bucket hash for the generic route, or point to a global route otherwise

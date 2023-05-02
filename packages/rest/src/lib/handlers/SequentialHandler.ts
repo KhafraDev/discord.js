@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { AsyncQueue } from '@sapphire/async-queue';
 import type { Dispatcher } from 'undici';
-import type { RateLimitData, RequestOptions, RESTOptions } from '../REST.js';
+import type { RateLimitData, RequestOptions, ResponseLike, RESTOptions } from '../REST.js';
 import type { HandlerRequestData, RequestManager, RouteData } from '../RequestManager.js';
 import { RESTEvents } from '../utils/constants.js';
 import { hasSublimit, onRateLimit } from '../utils/utils.js';
@@ -137,7 +137,7 @@ export class SequentialHandler implements IHandler {
 		url: string,
 		options: RequestOptions,
 		requestData: HandlerRequestData,
-	): Promise<Dispatcher.ResponseData> {
+	): Promise<ResponseLike> {
 		let queue = this.#asyncQueue;
 		let queueType = QueueType.Standard;
 		// Separate sublimited requests when already sublimited
@@ -199,7 +199,7 @@ export class SequentialHandler implements IHandler {
 		options: RequestOptions,
 		requestData: HandlerRequestData,
 		retries = 0,
-	): Promise<Dispatcher.ResponseData> {
+	): Promise<ResponseLike> {
 		/*
 		 * After calculations have been done, pre-emptively stop further requests
 		 * Potentially loop until this task can run if e.g. the global rate limit is hit twice

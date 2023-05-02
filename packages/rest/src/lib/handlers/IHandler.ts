@@ -1,5 +1,4 @@
-import type { Dispatcher } from 'undici';
-import type { RequestOptions } from '../REST.js';
+import type { RequestOptions, ResponseLike } from '../REST.js';
 import type { HandlerRequestData, RouteData } from '../RequestManager.js';
 
 export interface IHandler {
@@ -24,7 +23,7 @@ export interface IHandler {
 		url: string,
 		options: RequestOptions,
 		requestData: HandlerRequestData,
-	): Promise<Dispatcher.ResponseData>;
+	): Promise<ResponseLike>;
 }
 
 export interface PolyFillAbortSignal {

@@ -1,7 +1,6 @@
 import type { ServerResponse } from 'node:http';
-import { pipeline } from 'node:stream/promises';
+import type { ResponseLike } from '@discordjs/rest';
 import { DiscordAPIError, HTTPError, RateLimitError } from '@discordjs/rest';
-import type { Dispatcher } from 'undici';
 
 /**
  * Populates a server response with the data from a Discord 2xx REST response
@@ -9,19 +8,19 @@ import type { Dispatcher } from 'undici';
  * @param res - The server response to populate
  * @param data - The data to populate the response with
  */
-export async function populateSuccessfulResponse(res: ServerResponse, data: Dispatcher.ResponseData): Promise<void> {
-	res.statusCode = data.statusCode;
+export async function populateSuccessfulResponse(res: ServerResponse, data: ResponseLike): Promise<void> {
+	res.statusCode = data.status;
 
-	for (const header of Object.keys(data.headers)) {
+	for (const [headerName, headerValue] of data.headers.entries()) {
 		// Strip ratelimit headers
-		if (header.startsWith('x-ratelimit')) {
+		if (headerName.startsWith('x-ratelimit')) {
 			continue;
 		}
 
-		res.setHeader(header, data.headers[header]!);
+		res.setHeader(headerName, headerValue);
 	}
 
-	await pipeline(data.body, res);
+	res.write(await data.arrayBuffer());
 }
 
 /**
