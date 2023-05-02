@@ -2,18 +2,10 @@ import { Blob, Buffer } from 'node:buffer';
 import { URLSearchParams } from 'node:url';
 import { types } from 'node:util';
 import type { RESTPatchAPIChannelJSONBody } from 'discord-api-types/v10';
-import { FormData, type Dispatcher, type RequestInit } from 'undici';
-import type { RateLimitData, RequestOptions } from '../REST.js';
+import { FormData, type RequestInit } from 'undici';
+import type { RateLimitData, RequestOptions, ResponseLike } from '../REST.js';
 import { type RequestManager, RequestMethod } from '../RequestManager.js';
 import { RateLimitError } from '../errors/RateLimitError.js';
-
-export function parseHeader(header: string[] | string | undefined): string | undefined {
-	if (header === undefined || typeof header === 'string') {
-		return header;
-	}
-
-	return header.join(';');
-}
 
 function serializeSearchParam(value: unknown): string | null {
 	switch (typeof value) {
@@ -61,13 +53,13 @@ export function makeURLSearchParams<T extends object>(options?: Readonly<T>) {
  *
  * @param res - The fetch response
  */
-export async function parseResponse(res: Dispatcher.ResponseData): Promise<unknown> {
-	const header = parseHeader(res.headers['content-type']);
+export async function parseResponse(res: ResponseLike): Promise<unknown> {
+	const header = res.headers.get('content-type');
 	if (header?.startsWith('application/json')) {
-		return res.body.json();
+		return res.json();
 	}
 
-	return res.body.arrayBuffer();
+	return res.arrayBuffer();
 }
 
 /**

@@ -1,9 +1,9 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { Dispatcher } from 'undici';
-import type { RequestOptions } from '../REST.js';
+import type { RequestOptions, RESTOptions } from '../REST.js';
 import type { HandlerRequestData, RequestManager, RouteData } from '../RequestManager.js';
 import { RESTEvents } from '../utils/constants.js';
-import { onRateLimit, parseHeader } from '../utils/utils.js';
+import { onRateLimit } from '../utils/utils.js';
 import type { IHandler } from './IHandler.js';
 import { handleErrors, incrementInvalidCount, makeNetworkRequest } from './Shared.js';
 
@@ -35,6 +35,7 @@ export class BurstHandler implements IHandler {
 		private readonly manager: RequestManager,
 		private readonly hash: string,
 		private readonly majorParameter: string,
+		private readonly options: RESTOptions,
 	) {
 		this.id = `${hash}:${majorParameter}`;
 	}
@@ -78,7 +79,15 @@ export class BurstHandler implements IHandler {
 	): Promise<Dispatcher.ResponseData> {
 		const method = options.method ?? 'get';
 
-		const res = await makeNetworkRequest(this.manager, routeId, url, options, requestData, retries);
+		const res = await makeNetworkRequest(
+			this.manager,
+			routeId,
+			url,
+			options,
+			requestData,
+			retries,
+			this.options.makeRequest,
+		);
 
 		// Retry requested
 		if (res === null) {
@@ -86,9 +95,9 @@ export class BurstHandler implements IHandler {
 			return this.runRequest(routeId, url, options, requestData, ++retries);
 		}
 
-		const status = res.statusCode;
+		const status = res.status;
 		let retryAfter = 0;
-		const retry = parseHeader(res.headers['retry-after']);
+		const retry = res.headers.get('retry-after');
 
 		// Amount of time in milliseconds until we should retry if rate limited (globally or otherwise)
 		if (retry) retryAfter = Number(retry) * 1_000 + this.manager.options.offset;
@@ -102,7 +111,7 @@ export class BurstHandler implements IHandler {
 			return res;
 		} else if (status === 429) {
 			// Unexpected ratelimit
-			const isGlobal = res.headers['x-ratelimit-global'] !== undefined;
+			const isGlobal = res.headers.has('x-ratelimit-global');
 			await onRateLimit(this.manager, {
 				timeToReset: retryAfter,
 				limit: Number.POSITIVE_INFINITY,

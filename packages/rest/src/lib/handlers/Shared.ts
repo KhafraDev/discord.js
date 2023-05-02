@@ -1,6 +1,6 @@
 import { setTimeout, clearTimeout } from 'node:timers';
-import { request, type Dispatcher } from 'undici';
-import type { RequestOptions } from '../REST.js';
+import { Response } from 'undici';
+import type { RequestOptions, ResponseLike, RESTOptions } from '../REST.js';
 import type { HandlerRequestData, RequestManager, RouteData } from '../RequestManager.js';
 import type { DiscordErrorData, OAuthErrorData } from '../errors/DiscordAPIError.js';
 import { DiscordAPIError } from '../errors/DiscordAPIError.js';
@@ -63,6 +63,7 @@ export async function makeNetworkRequest(
 	options: RequestOptions,
 	requestData: HandlerRequestData,
 	retries: number,
+	makeRequest: RESTOptions['makeRequest'],
 ) {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), manager.options.timeout).unref();
@@ -76,9 +77,10 @@ export async function makeNetworkRequest(
 		else signal.addEventListener('abort', () => controller.abort());
 	}
 
-	let res: Dispatcher.ResponseData;
+	let res: ResponseLike;
 	try {
-		res = await request(url, { ...options, signal: controller.signal });
+		options.signal = controller.signal;
+		res = await makeRequest(url, options);
 	} catch (error: unknown) {
 		if (!(error instanceof Error)) throw error;
 		// Retry the specified number of times if needed
@@ -103,7 +105,7 @@ export async function makeNetworkRequest(
 				data: requestData,
 				retries,
 			},
-			{ ...res },
+			res instanceof Response ? (res as Response).clone() : { ...res },
 		);
 	}
 
@@ -123,13 +125,13 @@ export async function makeNetworkRequest(
  */
 export async function handleErrors(
 	manager: RequestManager,
-	res: Dispatcher.ResponseData,
+	res: ResponseLike,
 	method: string,
 	url: string,
 	requestData: HandlerRequestData,
 	retries: number,
 ) {
-	const status = res.statusCode;
+	const status = res.status;
 	if (status >= 500 && status < 600) {
 		// Retry the specified number of times for possible server side issues
 		if (retries !== manager.options.retries) {

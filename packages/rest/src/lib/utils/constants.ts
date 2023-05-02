@@ -1,6 +1,6 @@
 import process from 'node:process';
 import { APIVersion } from 'discord-api-types/v10';
-import { Agent } from 'undici';
+import { Agent, fetch } from 'undici';
 import type { RESTOptions } from '../REST.js';
 
 export const DefaultUserAgent =
@@ -34,6 +34,9 @@ export const DefaultRestOptions = {
 	hashSweepInterval: 14_400_000, // 4 Hours
 	hashLifetime: 86_400_000, // 24 Hours
 	handlerSweepInterval: 3_600_000, // 1 Hour
+	async makeRequest(...args) {
+		return fetch(...args);
+	},
 } as const satisfies Required<RESTOptions>;
 
 /**

@@ -1,10 +1,10 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { AsyncQueue } from '@sapphire/async-queue';
 import type { Dispatcher } from 'undici';
-import type { RateLimitData, RequestOptions } from '../REST.js';
+import type { RateLimitData, RequestOptions, RESTOptions } from '../REST.js';
 import type { HandlerRequestData, RequestManager, RouteData } from '../RequestManager.js';
 import { RESTEvents } from '../utils/constants.js';
-import { hasSublimit, onRateLimit, parseHeader } from '../utils/utils.js';
+import { hasSublimit, onRateLimit } from '../utils/utils.js';
 import type { IHandler } from './IHandler.js';
 import { handleErrors, incrementInvalidCount, makeNetworkRequest } from './Shared.js';
 
@@ -66,6 +66,7 @@ export class SequentialHandler implements IHandler {
 		private readonly manager: RequestManager,
 		private readonly hash: string,
 		private readonly majorParameter: string,
+		private readonly options: RESTOptions,
 	) {
 		this.id = `${hash}:${majorParameter}`;
 	}
@@ -262,7 +263,15 @@ export class SequentialHandler implements IHandler {
 
 		const method = options.method ?? 'get';
 
-		const res = await makeNetworkRequest(this.manager, routeId, url, options, requestData, retries);
+		const res = await makeNetworkRequest(
+			this.manager,
+			routeId,
+			url,
+			options,
+			requestData,
+			retries,
+			this.options.makeRequest,
+		);
 
 		// Retry requested
 		if (res === null) {
@@ -270,14 +279,14 @@ export class SequentialHandler implements IHandler {
 			return this.runRequest(routeId, url, options, requestData, ++retries);
 		}
 
-		const status = res.statusCode;
+		const status = res.status;
 		let retryAfter = 0;
 
-		const limit = parseHeader(res.headers['x-ratelimit-limit']);
-		const remaining = parseHeader(res.headers['x-ratelimit-remaining']);
-		const reset = parseHeader(res.headers['x-ratelimit-reset-after']);
-		const hash = parseHeader(res.headers['x-ratelimit-bucket']);
-		const retry = parseHeader(res.headers['retry-after']);
+		const limit = res.headers.get('x-ratelimit-limit');
+		const remaining = res.headers.get('x-ratelimit-remaining');
+		const reset = res.headers.get('x-ratelimit-reset-after');
+		const hash = res.headers.get('x-ratelimit-bucket');
+		const retry = res.headers.get('retry-after');
 
 		// Update the total number of requests that can be made before the rate limit resets
 		this.limit = limit ? Number(limit) : Number.POSITIVE_INFINITY;
@@ -309,7 +318,7 @@ export class SequentialHandler implements IHandler {
 		// Handle retryAfter, which means we have actually hit a rate limit
 		let sublimitTimeout: number | null = null;
 		if (retryAfter > 0) {
-			if (res.headers['x-ratelimit-global'] !== undefined) {
+			if (res.headers.has('x-ratelimit-global')) {
 				this.manager.globalRemaining = 0;
 				this.manager.globalReset = Date.now() + retryAfter;
 			} else if (!this.localLimited) {

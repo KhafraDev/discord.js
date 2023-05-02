@@ -5,7 +5,7 @@ import type { URLSearchParams } from 'node:url';
 import { Collection } from '@discordjs/collection';
 import { lazy } from '@discordjs/util';
 import { DiscordSnowflake } from '@sapphire/snowflake';
-import { FormData, type RequestInit, type BodyInit, type Dispatcher, type Agent } from 'undici';
+import { FormData, Headers, type RequestInit, type BodyInit, type Dispatcher, type Agent } from 'undici';
 import type { RESTOptions, RestEvents, RequestOptions } from './REST.js';
 import { BurstHandler } from './handlers/BurstHandler.js';
 import type { IHandler } from './handlers/IHandler.js';
@@ -360,8 +360,8 @@ export class RequestManager extends EventEmitter {
 		// Create the async request queue to handle requests
 		const queue =
 			majorParameter === BurstHandlerMajorIdKey
-				? new BurstHandler(this, hash, majorParameter)
-				: new SequentialHandler(this, hash, majorParameter);
+				? new BurstHandler(this, hash, majorParameter, this.options)
+				: new SequentialHandler(this, hash, majorParameter, this.options);
 		// Save the queue based on its id
 		this.handlers.set(queue.id, queue);
 
@@ -473,7 +473,7 @@ export class RequestManager extends EventEmitter {
 		finalBody = await resolveBody(finalBody);
 
 		const fetchOptions: RequestOptions = {
-			headers: { ...request.headers, ...additionalHeaders, ...headers } as Record<string, string>,
+			headers: new Headers({ ...request.headers, ...additionalHeaders, ...headers } as Record<string, string>),
 			method: request.method.toUpperCase() as Dispatcher.HttpMethod,
 		};
 

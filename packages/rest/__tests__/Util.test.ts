@@ -1,23 +1,7 @@
 import { Blob, Buffer } from 'node:buffer';
 import { URLSearchParams } from 'node:url';
 import { test, expect } from 'vitest';
-import { resolveBody, parseHeader } from '../src/lib/utils/utils.js';
-
-test('GIVEN string parseHeader returns string', () => {
-	const header = 'application/json';
-
-	expect(parseHeader(header)).toEqual(header);
-});
-
-test('GIVEN string[] parseHeader returns string', () => {
-	const header = ['application/json', 'wait sorry I meant text/html'];
-
-	expect(parseHeader(header)).toEqual(header.join(';'));
-});
-
-test('GIVEN undefined parseHeader return undefined', () => {
-	expect(parseHeader(undefined)).toBeUndefined();
-});
+import { resolveBody } from '../src/lib/utils/utils.js';
 
 test('resolveBody', async () => {
 	await expect(resolveBody(null)).resolves.toEqual(null);

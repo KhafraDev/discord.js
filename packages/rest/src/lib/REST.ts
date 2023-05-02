@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type { Collection } from '@discordjs/collection';
-import type { request, Dispatcher } from 'undici';
+import type { Dispatcher, fetch, Headers } from 'undici';
 import { CDN } from './CDN.js';
 import {
 	RequestManager,
@@ -14,6 +14,13 @@ import {
 import type { IHandler } from './handlers/IHandler.js';
 import { DefaultRestOptions, RESTEvents } from './utils/constants.js';
 import { parseResponse } from './utils/utils.js';
+
+export interface ResponseLike {
+	arrayBuffer(): Promise<ArrayBuffer>;
+	headers: Headers;
+	json(): Promise<unknown>;
+	status: number;
+}
 
 /**
  * Options to be passed when creating the REST instance
@@ -80,6 +87,12 @@ export interface RESTOptions {
 	 */
 	invalidRequestWarningInterval: number;
 	/**
+	 * A method that performs an HTTP request given a url and fetch options.
+	 *
+	 * @defaultValue `undici.fetch`
+	 */
+	makeRequest(this: void, ...args: Parameters<typeof fetch>): Promise<ResponseLike>;
+	/**
 	 * The extra offset to add to rate limits in milliseconds
 	 *
 	 * @defaultValue `50`
@@ -113,6 +126,7 @@ export interface RESTOptions {
 	 * @defaultValue DefaultUserAgentAppendix
 	 */
 	userAgentAppendix: string;
+
 	/**
 	 * The version of the API to use
 	 *
@@ -233,7 +247,7 @@ export interface REST {
 		(<S extends string | symbol>(event?: Exclude<S, keyof RestEvents>) => this);
 }
 
-export type RequestOptions = Exclude<Parameters<typeof request>[1], undefined>;
+export type RequestOptions = Exclude<Parameters<typeof fetch>[1], undefined>;
 
 export class REST extends EventEmitter {
 	public readonly cdn: CDN;
